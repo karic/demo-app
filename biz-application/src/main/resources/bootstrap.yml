@@ -1,0 +1,19 @@
+server.port: 9001
+
+spring:
+  application.name: biz-application
+  cloud.config:
+    discovery.enabled: false
+    fail-fast: false
+  jpa:
+    hibernate.ddl-auto: update
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+  datasource:
+    driverClassName: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/demo
+    username: demo
+    password: demo
+
+eureka.client:
+  registerWithEureka: false
+  fetchRegistry: false
