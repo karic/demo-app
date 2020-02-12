@@ -1,7 +1,7 @@
 def M2_PATH = "\$HOME/.m2"
 
 node {
-  def adminBuild
+  def build
 
   stage('Clone repository') {
     sh '''
