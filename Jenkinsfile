@@ -36,9 +36,14 @@ node {
     }
   }
 
-  stage('Tag and push image to registry') {
-    sh "docker tag ${DEPLOY_IMAGE_NAME}:${DEPLOY_IMAGE_TAG} localhost:5000/${DEPLOY_IMAGE_NAME}:${DEPLOY_IMAGE_TAG}"
-    sh "docker push localhost:5000/${DEPLOY_IMAGE_NAME}:${DEPLOY_IMAGE_TAG}"
+  // stage('Tag and push image to registry') {
+  //   sh "docker tag ${DEPLOY_IMAGE_NAME}:${DEPLOY_IMAGE_TAG} localhost:5000/${DEPLOY_IMAGE_NAME}:${DEPLOY_IMAGE_TAG}"
+  //   sh "docker push localhost:5000/${DEPLOY_IMAGE_NAME}:${DEPLOY_IMAGE_TAG}"
+  // }
+
+  stage('Remove build image') {
+    sh "docker stop ${BUILD_CONTAINER_NAME} && docker rm ${BUILD_CONTAINER_NAME}"
+    sh "docker image rm ${BUILD_IMAGE_NAME}:${BUILD_IMAGE_TAG}"
   }
 
 }
