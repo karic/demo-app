@@ -1,49 +1,37 @@
-def M2_PATH = "\$HOME/.m2"
-
 node {
   def build
 
-  stage('Clone repository') {
-    sh '''
-      if [ -d "${FOLDER_NAME}" ]; then
-        rm -rf ${FOLDER_NAME}
-      fi
-
-      git clone ${GITHUB_REPO} ${FOLDER_NAME}
-      cd "${FOLDER_NAME}"
-      git checkout ${BRANCH_NAME}
-    '''
-
-  }
-
-  stage('Build image') {
-    dir("${env.WORKSPACE}/${FOLDER_NAME}/${MICROSERVICE}") {
-      sh "docker build -t ${BUILD_IMAGE_NAME}:${BUILD_IMAGE_TAG} ."
-    }
-  }
-
   stage('Build app') {
-    // Stop and remove container if it exists
-    sh "docker stop ${BUILD_CONTAINER_NAME} || true && docker rm ${BUILD_CONTAINER_NAME} || true"
-    sh "docker run --name ${BUILD_CONTAINER_NAME} --mount type=bind,source=${M2_PATH},target=/root/.m2 ${BUILD_IMAGE_NAME}:${BUILD_IMAGE_TAG}"
+      // Stop and remove container if it exists
+      sh "docker stop ${BUILD_CONTAINER_NAME} || true && docker rm ${BUILD_CONTAINER_NAME} || true"
+      sh '''
+      docker run --name ${BUILD_CONTAINER_NAME} \
+                 --mount type=bind,source=\$HOME/.m2,target=/root/.m2 \
+                 -e GITHUB_REPO=${GITHUB_REPO} \
+                 -e FOLDER_NAME=${FOLDER_NAME} \
+                 -e BRANCH_NAME=${BRANCH_NAME} \
+                 -e MICROSERVICE=${MICROSERVICE} \
+                 -e UID=\$(id -u) \
+                 -e GID=\$(id -g) \
+                 build:v1
+      '''
   }
 
-  stage('Copy built file to host') {
-    dir("${env.WORKSPACE}/${FOLDER_NAME}/${MICROSERVICE}") {
+  stage('Copy jar file to host') {
       sh " [ ! -d \"jar\" ] && mkdir jar || true"
-      sh "docker cp ${BUILD_CONTAINER_NAME}:target/${JAR_FILE}.jar jar/"
-      sh "cd jar && docker build -t ${DEPLOY_IMAGE_NAME}:${DEPLOY_IMAGE_TAG} ."
-    }
+      sh "docker cp ${BUILD_CONTAINER_NAME}:${FOLDER_NAME}/${MICROSERVICE}/target/${JAR_FILE}.jar jar/"
+      sh "docker cp ${BUILD_CONTAINER_NAME}:${FOLDER_NAME}/${MICROSERVICE}/jar/Dockerfile jar/"
   }
 
-  // stage('Tag and push image to registry') {
-  //   sh "docker tag ${DEPLOY_IMAGE_NAME}:${DEPLOY_IMAGE_TAG} localhost:5000/${DEPLOY_IMAGE_NAME}:${DEPLOY_IMAGE_TAG}"
-  //   sh "docker push localhost:5000/${DEPLOY_IMAGE_NAME}:${DEPLOY_IMAGE_TAG}"
-  // }
+  stage('Build runtime image') {
+    sh "cd jar && docker build -t ${DEPLOY_IMAGE_NAME}:${DEPLOY_IMAGE_TAG} ."
+  }
 
-  stage('Remove build image') {
-    sh "docker stop ${BUILD_CONTAINER_NAME} && docker rm ${BUILD_CONTAINER_NAME}"
-    sh "docker image rm ${BUILD_IMAGE_NAME}:${BUILD_IMAGE_TAG}"
+  stage('Tag and push the image to docker hub') {
+    withDockerRegistry([ credentialsId: "${DOCKER_HUB_CREDENTIALS}", url: "" ]) {
+      sh "docker tag ${DEPLOY_IMAGE_NAME}:${DEPLOY_IMAGE_TAG} ${DOCKER_HUB_USER}/${DEPLOY_IMAGE_NAME}:${DEPLOY_IMAGE_TAG}"
+      sh "docker push ${DOCKER_HUB_USER}/${DEPLOY_IMAGE_NAME}:${DEPLOY_IMAGE_TAG}"
+    }
   }
 
 }
